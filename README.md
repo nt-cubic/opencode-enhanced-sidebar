@@ -2,7 +2,16 @@
 
 An enhanced sidebar plugin for [OpenCode](https://github.com/anomalyco/opencode) that adds real-time session analytics, tool tracking, and context health monitoring.
 
-## Features
+## 📋 Table of Contents
+
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Installation](#-installation)
+- [Requirements](#-requirements)
+- [Known Limitations](#-known-limitations)
+- [License](#-license)
+
+## 📊 Features
 
 ### 📊 7 Collapsible Cards
 
