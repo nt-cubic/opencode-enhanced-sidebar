@@ -6,6 +6,8 @@
 
 [OpenCode](https://github.com/anomalyco/opencode) の拡張サイドバープラグイン。リアルタイムのセッション分析、ツール追跡、コンテキストヘルスモニタリングを追加します。
 
+![スクリーンショット](screenshot.png)
+
 ## 📋 目次
 
 - [機能](#-機能)

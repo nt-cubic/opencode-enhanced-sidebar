@@ -6,6 +6,8 @@
 
 为 [OpenCode](https://github.com/anomalyco/opencode) 打造的增强侧边栏插件，提供实时会话分析、工具追踪和上下文健康监控。
 
+![截图](screenshot.png)
+
 ## 📋 目录
 
 - [功能](#-功能)

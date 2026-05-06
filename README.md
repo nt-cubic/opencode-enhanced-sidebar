@@ -6,6 +6,8 @@
 
 An enhanced sidebar plugin for [OpenCode](https://github.com/anomalyco/opencode) that adds real-time session analytics, tool tracking, and context health monitoring.
 
+![Screenshot](screenshot.png)
+
 ## 📋 Table of Contents
 
 - [Features](#-features)
