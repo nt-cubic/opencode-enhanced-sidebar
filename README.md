@@ -1,5 +1,9 @@
 # OpenCode Enhanced Sidebar
 
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
+
+---
+
 An enhanced sidebar plugin for [OpenCode](https://github.com/anomalyco/opencode) that adds real-time session analytics, tool tracking, and context health monitoring.
 
 ## 📋 Table of Contents

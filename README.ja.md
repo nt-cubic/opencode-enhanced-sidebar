@@ -1,5 +1,9 @@
 # OpenCode Enhanced Sidebar
 
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
+
+---
+
 [OpenCode](https://github.com/anomalyco/opencode) の拡張サイドバープラグイン。リアルタイムのセッション分析、ツール追跡、コンテキストヘルスモニタリングを追加します。
 
 ## 📋 目次

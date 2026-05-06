@@ -1,5 +1,9 @@
 # OpenCode Enhanced Sidebar
 
+[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md)
+
+---
+
 为 [OpenCode](https://github.com/anomalyco/opencode) 打造的增强侧边栏插件，提供实时会话分析、工具追踪和上下文健康监控。
 
 ## 📋 目录
