@@ -164,9 +164,24 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     return 0
   })
 
+  const STATS_PATH = join(homedir(), ".config", "opencode", `_tool_stats_${(props.session_id).replace(/[\\/:*?"<>|]/g, "_")}.json`)
+  interface ToolEntry { count: number; totalMs: number; errors: number }
+  interface ToolStats { tools: Record<string, ToolEntry>; chain: string[]; lastStepMs: number; ok: number; fail: number; reads: Record<string, number>; writes: Record<string, number> }
+
+  function loadToolStats(): ToolStats | null {
+    try { if (existsSync(STATS_PATH)) return JSON.parse(readFileSync(STATS_PATH, "utf-8")) } catch {}
+    return null
+  }
+
+  const [nowTs, setNowTs] = createSignal(Date.now())
+
+  onMount(() => {
+    const id = setInterval(() => { setNowTs(Date.now()) }, 1000)
+    onCleanup(() => clearInterval(id))
+  })
+
   const liveMs = createMemo(() => {
     const a = turnAnchor(); if (!a || !a.firstCreated) return 0
-    // stop only when the LAST assistant in the turn has completed
     if (a.lastDone > 0) return 0
     return nowTs() - a.firstCreated
   })
@@ -199,21 +214,10 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     return keys.sort((x, y) => a[y] - a[x]).map((k) => ({ name: k, count: a[k], pct: total > 0 ? ((a[k] / total) * 100).toFixed(0) : "0" }))
   })
 
-  // ——— server-plugin tool stats (polled from JSON) ———
-  const STATS_PATH = join(homedir(), ".config", "opencode", `_tool_stats_${(props.session_id).replace(/[\\/:*?"<>|]/g, "_")}.json`)
-  interface ToolEntry { count: number; totalMs: number; errors: number }
-  interface ToolStats { tools: Record<string, ToolEntry>; chain: string[]; lastStepMs: number; ok: number; fail: number; reads: Record<string, number>; writes: Record<string, number> }
-
-  function loadToolStats(): ToolStats | null {
-    try { if (existsSync(STATS_PATH)) return JSON.parse(readFileSync(STATS_PATH, "utf-8")) } catch {}
-    return null
-  }
-
   const [toolStats, setToolStats] = createSignal<ToolStats | null>(loadToolStats())
-  const [nowTs, setNowTs] = createSignal(Date.now())
 
   onMount(() => {
-    const id = setInterval(() => { setToolStats(loadToolStats()); setNowTs(Date.now()) }, 1000)
+    const id = setInterval(() => { setToolStats(loadToolStats()) }, 1000)
     onCleanup(() => clearInterval(id))
   })
 
