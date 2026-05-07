@@ -116,7 +116,11 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     return { input: (tk.input as number) || 0, output: (tk.output as number) || 0, reasoning: (tk.reasoning as number) || 0, cacheR: (cache?.read as number) || 0, cacheW: (cache?.write as number) || 0 }
   })
 
-  const modelName = createMemo(() => { const m = last(); return m ? `${m.modelID} (${m.providerID})` : null })
+  const modelName = createMemo(() => {
+    const m = last(); if (!m) return null
+    const v = (m.variant as string) ?? ""
+    return `${m.modelID} (${m.providerID})${v ? ` [${v}]` : ""}`
+  })
   const ctxLimit = createMemo(() => {
     const m = last(); if (!m) return null
     return props.api.state.provider.find((x) => x.id === (m.providerID as string))?.models[m.modelID as string]?.limit?.context ?? null
