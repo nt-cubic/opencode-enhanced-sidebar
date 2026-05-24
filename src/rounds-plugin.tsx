@@ -230,7 +230,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     const p = new Set<string>()
     for (const k of Object.keys(s.tools)) {
       const i = k.indexOf("_")
-      if (i > 0 && k[i - 1] === k[i - 1] && i < k.length - 1) { // has underscore with content on both sides
+      if (i > 0 && k[i - 1] !== '_' && i < k.length - 1) { // has underscore with content on both sides, skip __internal
         // check prefix looks like MCP name (contains dash or is not a simple word)
         const prefix = k.slice(0, i)
         if (/[A-Z]/.test(prefix) || prefix.includes("-") || prefix.includes(".")) p.add(prefix)
