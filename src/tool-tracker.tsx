@@ -92,7 +92,7 @@ export const server = async () => {
       }
     },
 
-    "tool.execute.after": async (input: { tool: string; callID: string; sessionID: string }, output: { output: string; metadata: Record<string, any> }) => {
+    "tool.execute.after": async (input: { tool: string; callID: string; sessionID: string }, output: { output: string; metadata: Record<string, any>; isError?: boolean }) => {
       const stats = load(input.sessionID)
       const t = input.tool
       stats.tools[t] = stats.tools[t] || { count: 0, totalMs: 0, errors: 0 }
@@ -106,7 +106,14 @@ export const server = async () => {
         delete starts[input.callID]
       }
 
-      if (output?.metadata?.error || /error/i.test(output?.output || "")) {
+      const isError = (
+        output?.metadata?.error ||
+        output?.isError ||
+        (typeof output?.metadata?.exit === "number" && output?.metadata?.exit !== 0) ||
+        /^(Error|ERROR|error):/.test(output?.output || "")
+      )
+
+      if (isError) {
         stats.tools[t].errors++
         stats.fail++
       } else {
