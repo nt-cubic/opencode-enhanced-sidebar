@@ -85,7 +85,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
   // ——— stats ———
   const stats = createMemo(() => {
     let out = 0, rsn = 0, cost = 0, errs = 0, cacheR = 0, cacheW = 0, input = 0
-    let firstCreated = 0, lastCompleted = 0, sumAsstMs = 0, asstTurns = 0
+    let firstCreated = 0, lastCompleted = 0, sumAsstMs = 0
     const agents: Record<string, number> = {}
     for (const m of msg()) {
       const agent = (m as Record<string, unknown>).agent as string | undefined
@@ -103,7 +103,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
       const completed = (tm?.completed as number) || 0
       if (completed > lastCompleted) lastCompleted = completed
       const dur = completed > 0 ? completed - created : 0
-      if (dur > 0) { sumAsstMs += dur; asstTurns++ }
+      if (dur > 0) { sumAsstMs += dur }
     }
     const sessionMs = lastCompleted > 0 && firstCreated > 0 ? lastCompleted - firstCreated : 0
     const avgTurnMs = userCount() > 0 ? Math.round(sumAsstMs / userCount()) : 0
@@ -135,8 +135,6 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
   const density = createMemo(() => {
     const total = msg().length; return total > 0 ? Math.round((stats().out + stats().rsn) / total) : 0
   })
-  const avgTpt = createMemo(() => userCount() > 0 ? Math.round((stats().out + stats().rsn) / userCount()) : 0)
-
   // ——— live / last turn timing ———
   const turnAnchor = createMemo(() => {
     const all = msg()
@@ -157,15 +155,6 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     }
     const lastDone = lastAsst ? ((lastAsst.time as Record<string, unknown> | undefined)?.completed as number) || 0 : 0
     return { firstCreated: firstAsstCreated, lastCompleted: lastAsstCompleted, lastDone }
-  })
-
-  const lastUserCreated = createMemo(() => {
-    for (let i = msg().length - 1; i >= 0; i--) {
-      const m = msg()[i]; if (m.role !== "user") continue
-      const tm = (m as Record<string, unknown>).time as Record<string, unknown> | undefined
-      return (tm?.created as number) || 0
-    }
-    return 0
   })
 
   const STATS_PATH = join(homedir(), ".config", "opencode", `_tool_stats_${(props.session_id).replace(/[\\/:*?"<>|]/g, "_")}.json`)
@@ -230,7 +219,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     const p = new Set<string>()
     for (const k of Object.keys(s.tools)) {
       const i = k.indexOf("_")
-      if (i > 0 && k[i - 1] === k[i - 1] && i < k.length - 1) { // has underscore with content on both sides
+      if (i > 0 && k[i - 1] !== '_' && i < k.length - 1) { // has underscore with content on both sides, skip __internal
         // check prefix looks like MCP name (contains dash or is not a simple word)
         const prefix = k.slice(0, i)
         if (/[A-Z]/.test(prefix) || prefix.includes("-") || prefix.includes(".")) p.add(prefix)

@@ -1,5 +1,5 @@
-﻿import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs"
-import { join, dirname } from "path"
+﻿import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs"
+import { join } from "path"
 import { homedir } from "os"
 
 const BASE = join(homedir(), ".config", "opencode")
@@ -51,6 +51,21 @@ function save(sid: string, s: ToolStats) {
   } catch {}
 }
 
+const STATS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+function cleanupOldStats() {
+  try {
+    const now = Date.now()
+    for (const f of readdirSync(BASE)) {
+      if (!f.startsWith("_tool_stats_") || !f.endsWith(".json")) continue
+      const fp = join(BASE, f)
+      if (now - statSync(fp).mtimeMs > STATS_MAX_AGE_MS) {
+        unlinkSync(fp)
+      }
+    }
+  } catch {}
+}
+
 function extractPath(args: any): string | null {
   if (!args) return null
   const fp = args.filePath || args.filepath || args.file || args.path
@@ -60,6 +75,7 @@ function extractPath(args: any): string | null {
 
 export const server = async () => {
   ensureDir()
+  cleanupOldStats()
 
   return {
     "tool.execute.before": async (input: { tool: string; callID: string; sessionID: string }, output: { args: any }) => {
@@ -76,7 +92,7 @@ export const server = async () => {
       }
     },
 
-    "tool.execute.after": async (input: { tool: string; callID: string; sessionID: string }, output: { output: string; metadata: Record<string, any> }) => {
+    "tool.execute.after": async (input: { tool: string; callID: string; sessionID: string }, output: { output: string; metadata: Record<string, any>; isError?: boolean }) => {
       const stats = load(input.sessionID)
       const t = input.tool
       stats.tools[t] = stats.tools[t] || { count: 0, totalMs: 0, errors: 0 }
@@ -90,7 +106,14 @@ export const server = async () => {
         delete starts[input.callID]
       }
 
-      if (output?.metadata?.error || /error/i.test(output?.output || "")) {
+      const isError = (
+        output?.metadata?.error ||
+        output?.isError ||
+        (typeof output?.metadata?.exit === "number" && output?.metadata?.exit !== 0) ||
+        /^(Error|ERROR|error):/.test(output?.output || "")
+      )
+
+      if (isError) {
         stats.tools[t].errors++
         stats.fail++
       } else {
