@@ -135,6 +135,26 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
   const density = createMemo(() => {
     const total = msg().length; return total > 0 ? Math.round((stats().out + stats().rsn) / total) : 0
   })
+  // ——— step / call counts ———
+  const stepCounts = createMemo(() => {
+    const msgs = msg()
+    let totalSteps = 0
+    let roundSteps = 0
+    let lastUserIdx = -1
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === "user") { lastUserIdx = i; break }
+    }
+    for (let i = 0; i < msgs.length; i++) {
+      const m = msgs[i]
+      if (m.role !== "assistant") continue
+      const parts = props.api.state.part(m.id)
+      const count = parts.filter((p) => p.type === "step-finish").length
+      totalSteps += count
+      if (i > lastUserIdx) roundSteps += count
+    }
+    return { totalSteps, roundSteps }
+  })
+
   // ——— live / last turn timing ———
   const turnAnchor = createMemo(() => {
     const all = msg()
@@ -418,6 +438,18 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
             <box flexDirection="row" justifyContent="space-between">
               <text fg={t.textMuted}>R/O (last turn)</text>
               <text fg={t.text}>{reLast()}x{Number(reLast()!) > 1.5 ? " thinking" : ""}</text>
+            </box>
+          </Show>
+          <Show when={stepCounts().totalSteps > 0}>
+            <box flexDirection="row" justifyContent="space-between">
+              <text fg={t.textMuted}>Calls (session)</text>
+              <text fg={t.text}>{n(stepCounts().totalSteps)}</text>
+            </box>
+          </Show>
+          <Show when={stepCounts().roundSteps > 0}>
+            <box flexDirection="row" justifyContent="space-between">
+              <text fg={t.textMuted}>Calls (round)</text>
+              <text fg={t.text}>{n(stepCounts().roundSteps)}</text>
             </box>
           </Show>
         </Show>
