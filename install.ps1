@@ -1,74 +1,75 @@
-# OpenCode Enhanced Sidebar - Windows Installer
+# OpenCode Enhanced Sidebar - Windows Installer (OpenCode V2)
 # Run with: powershell -ExecutionPolicy Bypass -File install.ps1
 
 param([switch]$Force)
 
 $ErrorActionPreference = "Stop"
+$pluginName = "enhanced-sidebar"
 $opencodeDir = "$env:USERPROFILE\.config\opencode"
+$pluginsDir = Join-Path $opencodeDir "plugins"
+$target = Join-Path $pluginsDir $pluginName
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$source = Join-Path $scriptRoot "plugins\$pluginName"
 
-Write-Host "=== OpenCode Enhanced Sidebar Installer ===" -ForegroundColor Cyan
+Write-Host "=== OpenCode Enhanced Sidebar Installer (V2) ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Create opencode config directory
-if (!(Test-Path $opencodeDir)) {
-    New-Item -ItemType Directory -Path $opencodeDir -Force | Out-Null
-    Write-Host "[OK] Created $opencodeDir"
+if (!(Test-Path (Join-Path $source "tui.tsx"))) {
+    throw "Plugin source not found: $source\tui.tsx"
 }
 
-# Copy plugin files
-Write-Host "Copying plugin files..."
-Copy-Item "$scriptRoot\src\rounds-plugin.tsx" "$opencodeDir\rounds-plugin.tsx" -Force
-Copy-Item "$scriptRoot\src\tool-tracker.tsx" "$opencodeDir\tool-tracker.tsx" -Force
-Write-Host "  [OK] round-plugin.tsx -> $opencodeDir"
-Write-Host "  [OK] tool-tracker.tsx -> $opencodeDir"
-
-# Install npm dependencies
-Write-Host "Installing dependencies..."
-Push-Location $opencodeDir
-try {
-    npm install solid-js @opentui/solid --save 2>$null
-    Write-Host "  [OK] npm dependencies installed"
-} catch {
-    Write-Host "  [WARN] npm install had issues, but opencode may auto-install on restart"
-} finally {
-    Pop-Location
+# Install the plugin directory. OpenCode V2 discovers <config>/plugins/<name>/tui.tsx
+# automatically, so no opencode.jsonc / cli.json entry is required.
+if (Test-Path (Join-Path $target "tui.tsx")) {
+    $installed = Get-Item (Join-Path $target "tui.tsx")
+    Write-Host "[INFO] Replacing existing install from $($installed.LastWriteTime)"
 }
+New-Item -ItemType Directory -Path $target -Force | Out-Null
+Get-ChildItem -Path $source -File | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $target $_.Name) -Force
+}
+Write-Host "[OK] Installed plugin -> $target"
 
-# Merge tui.json config
-$tuiFile = Join-Path $opencodeDir "tui.json"
-$tuiContent = '{
-  "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["./rounds-plugin.tsx"]
-}'
-if (Test-Path $tuiFile) {
-    Write-Host "  [INFO] tui.json already exists. Add './rounds-plugin.tsx' to the 'plugin' array manually if not present."
-} else {
-    Set-Content -Path $tuiFile -Value $tuiContent -Encoding UTF8
-    Write-Host "  [OK] Created tui.json"
+# Disable leftover V1 plugin files so V2 stops warning about them.
+foreach ($legacy in @("rounds-plugin.tsx", "tool-tracker.tsx")) {
+    $legacyPath = Join-Path $opencodeDir $legacy
+    if (Test-Path $legacyPath) {
+        $backup = "$legacyPath.v1-backup"
+        Move-Item -Path $legacyPath -Destination $backup -Force
+        Write-Host "[OK] Disabled legacy V1 plugin: $legacy -> $legacy.v1-backup"
+    }
 }
 
-# Merge opencode.jsonc config
-$opencodeFile = Join-Path $opencodeDir "opencode.jsonc"
-$ocContent = @'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./tool-tracker.tsx"]
+# Remove stale plugin entries that pointed at the V1 files. The rest of each
+# config file (comments, unrelated entries) is preserved; only the exact
+# quoted entry strings are removed.
+function Remove-ConfigEntry {
+    param([string]$File, [string]$Entry, [string]$Label)
+    if (!(Test-Path $File)) { return }
+    $text = Get-Content $File -Raw
+    if (!$text.Contains($Entry)) { return }
+    $quoted = [regex]::Escape('"' + $Entry + '"')
+    if ($text -match (',\s*' + $quoted)) {
+        $text = $text -replace (',\s*' + $quoted), ""
+    } elseif ($text -match ($quoted + '\s*,')) {
+        $text = $text -replace ($quoted + '\s*,'), ""
+    } else {
+        $text = $text -replace $quoted, ""
+    }
+    Set-Content -Path $File -Value $text -NoNewline -Encoding UTF8
+    Write-Host "[OK] Removed stale entry '$Entry' from $Label"
 }
-'@
-if (Test-Path $opencodeFile) {
-    Write-Host "  [INFO] opencode.jsonc already exists. Add './tool-tracker.tsx' to the 'plugin' array manually if not present."
-} else {
-    Set-Content -Path $opencodeFile -Value $ocContent -Encoding UTF8
-    Write-Host "  [OK] Created opencode.jsonc"
-}
+
+Remove-ConfigEntry -File (Join-Path $opencodeDir "cli.json") -Entry "./rounds-plugin.tsx" -Label "cli.json"
+Remove-ConfigEntry -File (Join-Path $opencodeDir "opencode.jsonc") -Entry "./tool-tracker.tsx" -Label "opencode.jsonc"
+Remove-ConfigEntry -File (Join-Path $opencodeDir "opencode.json") -Entry "./tool-tracker.tsx" -Label "opencode.json"
 
 Write-Host ""
 Write-Host "=== Installation Complete ===" -ForegroundColor Green
 Write-Host "Restart OpenCode to see the enhanced sidebar."
 Write-Host ""
-Write-Host "Files installed:"
-Write-Host "  $opencodeDir\rounds-plugin.tsx"
-Write-Host "  $opencodeDir\tool-tracker.tsx"
-Write-Host "  $opencodeDir\tui.json"
-Write-Host "  $opencodeDir\opencode.jsonc"
+Write-Host "Installed files:"
+Get-ChildItem -Path $target -File | ForEach-Object { Write-Host "  $($_.FullName)" }
+Write-Host ""
+Write-Host "No configuration entry is needed: OpenCode V2 auto-discovers plugins under"
+Write-Host "$pluginsDir"

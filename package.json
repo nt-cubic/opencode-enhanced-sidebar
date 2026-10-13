@@ -1,0 +1,21 @@
+{
+  "name": "opencode-enhanced-sidebar",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An enhanced sidebar plugin for OpenCode with real-time session analytics.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "smoke": "bun --preload @opentui/solid/preload tests/render-smoke.tsx"
+  },
+  "devDependencies": {
+    "@opencode/client": "2.0.27",
+    "@opencode/plugin": "2.0.27",
+    "@opencode/theme": "2.0.27",
+    "@opentui/core": "0.5.17",
+    "@opentui/solid": "0.5.17",
+    "@types/node": "24.12.2",
+    "solid-js": "1.9.12",
+    "typescript": "5.8.2"
+  }
+}

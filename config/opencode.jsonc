@@ -1,4 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./tool-tracker.tsx"]
+  // Optional: install as an explicit plugin reference instead of relying on
+  // auto-discovery under <config>/plugins/. The path is relative to this file.
+  "plugins": ["./plugins/enhanced-sidebar"]
 }
