@@ -4,7 +4,7 @@
 
 ---
 
-[OpenCode](https://github.com/anomalyco/opencode) の拡張サイドバープラグイン。リアルタイムのセッション分析、ツール追跡、コンテキストヘルスモニタリングを追加します。
+[OpenCode](https://github.com/anomalyco/opencode) **V2** の拡張サイドバープラグイン。リアルタイムのセッション分析、ツール追跡、コンテキストヘルスモニタリングを追加します。
 
 ![スクリーンショット](screenshot.png)
 
@@ -35,25 +35,25 @@
 
 現在のAIターンの実行時間を1秒ごとに更新するリアルタイムカウンター。
 
-### 🔧 ツール追跡（独立したサーバープラグイン）
+### 🔧 ツール追跡（サイドバーに内蔵）
 
 - セッションごとのツール呼び出し統計（会話間でデータが混ざらない）
-- MCPツールはプロバイダーごとに自動グループ化（共通プレフィックスは非表示）
+- MCPツールはサーバーごとに自動グループ化（共通プレフィックスは非表示）
 - ファイルの読み取り/書き込みアクティビティを追跡し、Hot Filesに表示
 - 成功率とツールごとの平均処理時間
+- 統計はすべてセッションメッセージ自体から算出 — サーバープラグインもJSONファイルのポーリングも不要
 
 ## アーキテクチャ
 
-```
-ユーザー → TUIプラグイン (rounds-plugin.tsx)
-  ├─ api.state.session.messages()  → 静的セッションデータ
-  ├─ api.state.session.diff()      → ファイル変更
-  └─ _tool_stats_{sessionID}.json を1秒ごとにポーリング
+OpenCode V2 のアシスタントメッセージはツール呼び出し状態（`content[].state`、`content[].time`）をインラインで保持するため、サイドバーは単一のターミナルプラグインです：
 
-サーバープラグイン (tool-tracker.tsx)
-  ├─ tool.execute.before   → 読み取り/書き込みを記録（ファイルパス）
-  └─ tool.execute.after    → 回数/時間/成功率を記録
-       └─ _tool_stats_{sessionID}.json に書き込み（セッションごと、マージ安全）
+```
+ユーザー → CLIプラグイン (plugins/enhanced-sidebar/tui.tsx)
+  ├─ data.session.message.list()   → ライブメッセージウィンドウ（リアクティブ）
+  ├─ client.message.list()         → 完全なトランスクリプトをページング取得（ターン終了ごとに更新）
+  ├─ client.session.diff()         → ファイル変更（+/-）
+  ├─ data.session.get()            → セッションのコスト、トークン、時刻
+  └─ data.location.{model,mcp}     → コンテキスト上限、MCPサーバー名
 ```
 
 ## インストール
@@ -64,27 +64,33 @@
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
+インストーラーは `plugins/enhanced-sidebar/` を `~\.config\opencode\plugins\enhanced-sidebar\` にコピーし、旧V1プラグインファイルを無効化して、設定に残った `./rounds-plugin.tsx`・`./tool-tracker.tsx` の不要なエントリを削除します。
+
 ### 手動インストール
 
-1. `src/rounds-plugin.tsx` と `src/tool-tracker.tsx` を `~\.config\opencode\` にコピー
-2. プラグイン参照を追加：
-   - `tui.json`: `"plugin": ["./rounds-plugin.tsx"]`
-   - `opencode.jsonc`: `"plugin": ["./tool-tracker.tsx"]`
-3. 依存関係をインストール: `cd ~\.config\opencode && npm install solid-js @opentui/solid`
-4. OpenCodeを再起動
+1. `plugins/enhanced-sidebar/` ディレクトリを `~\.config\opencode\plugins\enhanced-sidebar\`（Windows）または `~/.config/opencode/plugins/enhanced-sidebar/`（macOS/Linux）にコピーします。
+2. OpenCodeを再起動します。V2 は `plugins/enhanced-sidebar/tui.tsx` を自動的に検出するため、`opencode.jsonc` や `cli.json` への追記は不要です。
+   - 明示的に参照したい場合（プロジェクト単位のインストールなど）は、`opencode.jsonc` に `"plugins": ["./plugins/enhanced-sidebar"]` を追加します。
 
 ## 要件
 
-- OpenCode ≥ v1.14.x
-- `@opencode-ai/plugin`（OpenCodeが自動インストール）
-- `solid-js`、`@opentui/solid`（TUIプラグインのレンダリングに必要）
+- OpenCode ≥ v2.0（V2プラグインAPI）
+- npm install は不要：OpenCode は実行時に `@opencode/plugin/tui`、`solid-js`、`@opentui/solid` を解決します。
 
 ## 既知の制限
 
-- ツール呼び出しイベントはV2同期プロトコルを使用し、TUIプラグインAPIに到達する前にフィルタリングされます。サーバープラグインがJSONファイルのポーリングでこのギャップを埋めます。
-- 過去のセッションデータは利用できません — ツール追跡は各セッションで新規開始します。
-- メッセージへのスクロールやセッション切り替えはTUIプラグインAPIからは不可能です。
+- OpenCode V1 はサポートしません。以前の V1 実装（`src/rounds-plugin.tsx`、`src/tool-tracker.tsx`）は git 履歴に残っています。
+- セッション全体の統計はページングされたメッセージAPIでトランスクリプト全体を取得します。長いセッションはターン終了ごとに更新されます。
+- メッセージへのスクロールやセッション切り替えは CLI プラグインAPIからは不可能です。
 - macOS/Linux：手動インストールのみ（インストールスクリプトはWindows専用）。
+
+## 開発
+
+```sh
+npm install
+npm run typecheck   # OpenCode V2 プラグインAPIに対する TypeScript チェック
+npm run smoke       # ヘッドレスレンダーテスト（Bun が必要: https://bun.sh）
+```
 
 ## ライセンス
 

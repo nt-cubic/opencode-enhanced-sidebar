@@ -4,7 +4,7 @@
 
 ---
 
-为 [OpenCode](https://github.com/anomalyco/opencode) 打造的增强侧边栏插件，提供实时会话分析、工具追踪和上下文健康监控。
+为 [OpenCode](https://github.com/anomalyco/opencode) **V2** 打造的增强侧边栏插件，提供实时会话分析、工具追踪和上下文健康监控。
 
 ![截图](screenshot.png)
 
@@ -35,25 +35,25 @@
 
 每秒刷新，显示当前 AI 轮次已运行时长。轮次完成时自动停止。
 
-### 🔧 工具追踪（独立 Server 插件）
+### 🔧 工具追踪（已内置到侧边栏）
 
 - 按会话隔离的工具调用统计（不同对话互不污染）
-- MCP 工具按供应方自动分组，隐藏公共前缀
+- MCP 工具按服务器自动分组，隐藏公共前缀
 - 文件读写活动追踪，供 Hot Files 展示
 - 成功率/失败率和每种工具的平均耗时
+- 全部统计直接来自会话消息本身——不再需要配套的 Server 插件，也不再轮询 JSON 文件
 
 ## 架构
 
-```
-你 → TUI 插件 (rounds-plugin.tsx)
-  ├─ api.state.session.messages()  → 静态会话数据
-  ├─ api.state.session.diff()      → 文件变更
-  └─ 轮询 _tool_stats_{sessionID}.json  ← 每 1 秒
+OpenCode V2 的助手消息内联携带工具调用状态（`content[].state`、`content[].time`），因此侧边栏只需一个终端插件：
 
-Server 插件 (tool-tracker.tsx)
-  ├─ tool.execute.before   → 记录文件读写（文件路径）
-  └─ tool.execute.after    → 记录次数/耗时/成功率
-       └─ 写入 _tool_stats_{sessionID}.json（按会话隔离，安全合并）
+```
+你 → CLI 插件 (plugins/enhanced-sidebar/tui.tsx)
+  ├─ data.session.message.list()   → 实时消息窗口（响应式）
+  ├─ client.message.list()         → 完整会话消息，分页拉取（每轮结束刷新）
+  ├─ client.session.diff()         → 文件变更（+/-）
+  ├─ data.session.get()            → 会话花费、Token、时间
+  └─ data.location.{model,mcp}     → 上下文上限、MCP 服务器名
 ```
 
 ## 安装
@@ -64,27 +64,33 @@ Server 插件 (tool-tracker.tsx)
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
+安装脚本会把 `plugins/enhanced-sidebar/` 复制到 `~\.config\opencode\plugins\enhanced-sidebar\`，停用遗留的 V1 插件文件，并清理配置中失效的 `./rounds-plugin.tsx`、`./tool-tracker.tsx` 条目。
+
 ### 手动安装
 
-1. 将 `src/rounds-plugin.tsx` 和 `src/tool-tracker.tsx` 复制到 `~\.config\opencode\`
-2. 添加插件引用：
-   - `tui.json`：`"plugin": ["./rounds-plugin.tsx"]`
-   - `opencode.jsonc`：`"plugin": ["./tool-tracker.tsx"]`
-3. 安装依赖：`cd ~\.config\opencode && npm install solid-js @opentui/solid`
-4. 重启 OpenCode
+1. 将 `plugins/enhanced-sidebar/` 目录复制到 `~\.config\opencode\plugins\enhanced-sidebar\`（Windows）或 `~/.config/opencode/plugins/enhanced-sidebar/`（macOS/Linux）。
+2. 重启 OpenCode。V2 会自动发现 `plugins/enhanced-sidebar/tui.tsx`，无需修改 `opencode.jsonc` 或 `cli.json`。
+   - 如需显式引用（例如按项目安装）：在 `opencode.jsonc` 中加入 `"plugins": ["./plugins/enhanced-sidebar"]`。
 
 ## 环境要求
 
-- OpenCode ≥ v1.14.x
-- `@opencode-ai/plugin`（OpenCode 自动安装）
-- `solid-js`、`@opentui/solid`（TUI 插件渲染所需）
+- OpenCode ≥ v2.0（V2 插件 API）
+- 无需 npm 安装依赖：OpenCode 会在运行时解析 `@opencode/plugin/tui`、`solid-js`、`@opentui/solid`。
 
 ## 已知限制
 
-- 工具调用事件使用 V2 sync 协议，在到达 TUI 插件前被过滤。Server 插件通过 JSON 文件轮询桥接。
-- 历史会话数据不可用——每个会话的工具追踪从零开始。
-- TUI 插件 API 不支持滚动到指定消息或切换会话。
+- 不支持 OpenCode V1。旧的 V1 实现（`src/rounds-plugin.tsx`、`src/tool-tracker.tsx`）仍保留在 git 历史中。
+- 会话级统计通过分页消息 API 拉取完整会话记录；长会话在每轮结束后刷新一次。
+- CLI 插件 API 仍不支持滚动到指定消息或切换会话。
 - macOS/Linux：仅支持手动安装（安装脚本仅 Windows）。
+
+## 开发
+
+```sh
+npm install
+npm run typecheck   # 针对 OpenCode V2 插件 API 做 TypeScript 检查
+npm run smoke       # 无头渲染测试（需要 Bun：https://bun.sh）
+```
 
 ## 许可证
 

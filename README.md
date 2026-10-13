@@ -4,7 +4,7 @@
 
 ---
 
-An enhanced sidebar plugin for [OpenCode](https://github.com/anomalyco/opencode) that adds real-time session analytics, tool tracking, and context health monitoring.
+An enhanced sidebar plugin for [OpenCode](https://github.com/anomalyco/opencode) **V2** that adds real-time session analytics, tool tracking, and context health monitoring.
 
 ![Screenshot](screenshot.png)
 
@@ -35,25 +35,25 @@ An enhanced sidebar plugin for [OpenCode](https://github.com/anomalyco/opencode)
 
 A real-time counter showing how long the current AI turn has been running. Updates every second.
 
-### 🔧 Tool Tracking (Separate Server Plugin)
+### 🔧 Tool Tracking (Built Into the Sidebar)
 
 - Per-session tool call statistics (doesn't cross-contaminate between conversations)
-- MCP tools automatically grouped by provider with common prefixes stripped
-- File read/write activity tracked for Hot Files display
+- MCP tools automatically grouped by server, with the server prefix stripped
+- File read/write activity tracked for the Hot Files card
 - Success/fail rate and per-tool average timing
+- All statistics are derived from the session transcript itself — there is no companion server plugin and no JSON file polling
 
 ## Architecture
 
-```
-You → TUI Plugin (rounds-plugin.tsx)
-  ├─ api.state.session.messages()  → static session data
-  ├─ api.state.session.diff()      → file changes
-  └─ polls _tool_stats_{sessionID}.json  ← every 1s
+OpenCode V2 assistant messages carry inline tool state (`content[].state`, `content[].time`), so the sidebar is a single terminal plugin:
 
-Server Plugin (tool-tracker.tsx)
-  ├─ tool.execute.before   → records reads/writes (file paths)
-  └─ tool.execute.after    → records counts/timing/success
-       └─ writes _tool_stats_{sessionID}.json  (per-session, merge-safe)
+```
+You → CLI plugin (plugins/enhanced-sidebar/tui.tsx)
+  ├─ data.session.message.list()   → live message window (reactive)
+  ├─ client.message.list()         → full transcript, paginated (refreshed each turn)
+  ├─ client.session.diff()         → changed files (+/-)
+  ├─ data.session.get()            → session cost, tokens, timestamps
+  └─ data.location.{model,mcp}     → context limits, MCP server names
 ```
 
 ## Installation
@@ -64,27 +64,33 @@ Server Plugin (tool-tracker.tsx)
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-### Manual Installation
+The installer copies `plugins/enhanced-sidebar/` to `~\.config\opencode\plugins\enhanced-sidebar\`, disables leftover V1 plugin files, and removes stale `./rounds-plugin.tsx` / `./tool-tracker.tsx` config entries.
 
-1. Copy `src/rounds-plugin.tsx` and `src/tool-tracker.tsx` to `~\.config\opencode\`
-2. Add plugin references:
-   - `tui.json`: `"plugin": ["./rounds-plugin.tsx"]`
-   - `opencode.jsonc`: `"plugin": ["./tool-tracker.tsx"]`
-3. Install dependencies: `cd ~\.config\opencode && npm install solid-js @opentui/solid`
-4. Restart OpenCode
+### Manual installation
+
+1. Copy the `plugins/enhanced-sidebar/` directory to `~\.config\opencode\plugins\enhanced-sidebar\` (Windows) or `~/.config/opencode/plugins/enhanced-sidebar/` (macOS/Linux).
+2. Restart OpenCode. V2 discovers `plugins/enhanced-sidebar/tui.tsx` automatically — no `opencode.jsonc` or `cli.json` entry is required.
+   - Prefer an explicit reference (for example a project-local install)? Add `"plugins": ["./plugins/enhanced-sidebar"]` to `opencode.jsonc`.
 
 ## Requirements
 
-- OpenCode ≥ v1.14.x
-- `@opencode-ai/plugin` (auto-installed by OpenCode)
-- `solid-js`, `@opentui/solid` (required for TUI plugin rendering)
+- OpenCode ≥ v2.0 (V2 plugin API)
+- No npm install needed: OpenCode resolves `@opencode/plugin/tui`, `solid-js`, and `@opentui/solid` at runtime.
 
 ## Known Limitations
 
-- Tool call events use V2 sync protocol which is filtered before reaching the TUI plugin API. The server plugin bridges this gap via JSON file polling.
-- Historical session data is not available — tool tracking starts fresh each session.
-- Scroll-to-message and session-switching are not possible from the TUI plugin API.
+- OpenCode V1 is not supported. The previous V1 implementation (`src/rounds-plugin.tsx`, `src/tool-tracker.tsx`) remains available in git history.
+- Session-wide statistics load the full transcript through the paged messages API; long sessions are refreshed once per finished turn.
+- Scroll-to-message and session-switching are not possible from the CLI plugin API.
 - macOS/Linux: manual installation only (install script is Windows-only).
+
+## Development
+
+```sh
+npm install
+npm run typecheck   # TypeScript check against the OpenCode V2 plugin API
+npm run smoke       # headless render test (requires Bun: https://bun.sh)
+```
 
 ## License
 
